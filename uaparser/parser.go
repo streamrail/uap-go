@@ -36,8 +36,8 @@ const (
 	EUserAgentLookUpMode	= 2	/* 00000010 */
 	EDeviceLookUpMode	= 4	/* 00000100 */
 	cMinMissesTreshold	= 100000
-	cDefaultMissesTreshold	= 500000
-	cDefaultMatchIdxNotOk	= 20
+	CDefaultMissesTreshold	= 500000
+	CDefaultMatchIdxNotOk	= 20
 )
 
 var (
@@ -93,8 +93,8 @@ func New(regexFile string) (*Parser, error) {
 	if nil != err {
 		return nil, err
 	}
-	matchIdxNotOk = cDefaultMatchIdxNotOk
-	missesTreshold = cDefaultMissesTreshold
+	matchIdxNotOk = CDefaultMatchIdxNotOk
+	missesTreshold = CDefaultMissesTreshold
 	parser.Mode = (EOsLookUpMode | EUserAgentLookUpMode | EDeviceLookUpMode)
 	return parser.newFromBytes(data)
 }
