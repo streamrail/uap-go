@@ -16,7 +16,13 @@ type DevicePattern struct {
 	BrandReplacement  string
 	DeviceReplacement string
 	ModelReplacement  string
+	MatchesCount      int
 }
+
+type DevicePatternSorter []DevicePattern
+func (a DevicePatternSorter) Len() int           { return len(a) }
+func (a DevicePatternSorter) Swap(i, j int)      { a[i], a[j] = a[j], a[i] }
+func (a DevicePatternSorter) Less(i, j int) bool { return a[i].MatchesCount > a[j].MatchesCount }
 
 func (dvcPattern *DevicePattern) Match(line string, dvc *Device) {
 	matches := dvcPattern.Regexp.FindStringSubmatch(line)

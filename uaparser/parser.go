@@ -11,12 +11,18 @@ import (
 	"strings"
 	"sync"
 	"unicode"
+	"sort"
+	"math"
 )
 
 type Parser struct {
 	UserAgentPatterns []UserAgentPattern
+	UserAgentMisses   int
 	OsPatterns        []OsPattern
+	OsMisses          int
 	DevicePatterns    []DevicePattern
+	DeviceMisses      int
+	Mode              int
 }
 
 type Client struct {
@@ -25,7 +31,20 @@ type Client struct {
 	Device    *Device
 }
 
-var exportedNameRegex = regexp.MustCompile("[0-9A-Za-z]+")
+const (
+	EOsLookUpMode		= 1	/* 00000001 */
+	EUserAgentLookUpMode	= 2	/* 00000010 */
+	EDeviceLookUpMode	= 4	/* 00000100 */
+	cMinMissesTreshold	= 100000
+	cDefaultMissesTreshold	= 500000
+	cDefaultMatchIdxNotOk	= 20
+)
+
+var (
+	exportedNameRegex = regexp.MustCompile("[0-9A-Za-z]+")
+	missesTreshold    = 500000
+	matchIdxNotOk   = 20
+)
 
 func GetExportedName(src string) string {
 	byteSrc := []byte(src)
@@ -49,6 +68,24 @@ func ToStruct(interfaceArr []map[string]string, typeInterface interface{}, retur
 	*returnVal = structArr
 }
 
+func NewWithOptions(regexFile string, mode, treshold, topCnt int) (*Parser, error) {
+	parser := new(Parser)
+
+	data, err := ioutil.ReadFile(regexFile)
+	if nil != err {
+		return nil, err
+	}
+	if topCnt >= 0 {
+		matchIdxNotOk = topCnt
+	}
+
+	if treshold > cMinMissesTreshold {
+		missesTreshold = treshold
+	}
+	parser.Mode = mode
+	return parser.newFromBytes(data)
+}
+
 func New(regexFile string) (*Parser, error) {
 	parser := new(Parser)
 
@@ -56,7 +93,9 @@ func New(regexFile string) (*Parser, error) {
 	if nil != err {
 		return nil, err
 	}
-
+	matchIdxNotOk = cDefaultMatchIdxNotOk
+	missesTreshold = cDefaultMissesTreshold
+	parser.Mode = (EOsLookUpMode | EUserAgentLookUpMode | EDeviceLookUpMode)
 	return parser.newFromBytes(data)
 }
 
@@ -86,6 +125,7 @@ func (parser *Parser) newFromBytes(data []byte) (*Parser, error) {
 		for i, inter := range uaInterfaces {
 			uaPatterns[i] = inter.(UserAgentPattern)
 			uaPatterns[i].Regexp = regexp.MustCompile(uaPatterns[i].Regex)
+			uaPatterns[i].MatchesCount = 0
 		}
 		wg.Done()
 	}()
@@ -121,6 +161,7 @@ func (parser *Parser) newFromBytes(data []byte) (*Parser, error) {
 			}
 			regexString := fmt.Sprintf("%s%s", flags, dvcPatterns[i].Regex)
 			dvcPatterns[i].Regexp = regexp.MustCompile(regexString)
+			dvcPatterns[i].MatchesCount = 0
 		}
 		wg.Done()
 	}()
@@ -136,58 +177,101 @@ func (parser *Parser) newFromBytes(data []byte) (*Parser, error) {
 
 func (parser *Parser) ParseUserAgent(line string) *UserAgent {
 	ua := new(UserAgent)
+	foundIdx := math.MaxInt32
 	found := false
-	for _, uaPattern := range parser.UserAgentPatterns {
+	for i, uaPattern := range parser.UserAgentPatterns {
 		uaPattern.Match(line, ua)
 		if len(ua.Family) > 0 {
 			found = true
+			foundIdx = i
+			parser.UserAgentPatterns[i].MatchesCount++
 			break
 		}
 	}
 	if !found {
+		foundIdx = -1
 		ua.Family = "Other"
+	}
+	if(foundIdx > matchIdxNotOk) {
+		parser.UserAgentMisses++
 	}
 	return ua
 }
 
 func (parser *Parser) ParseOs(line string) *Os {
 	os := new(Os)
+	foundIdx := math.MaxInt32
 	found := false
-	for _, osPattern := range parser.OsPatterns {
+	for i, osPattern := range parser.OsPatterns {
 		osPattern.Match(line, os)
 		if len(os.Family) > 0 {
 			found = true
+			foundIdx = i
+			parser.OsPatterns[i].MatchesCount++
 			break
 		}
 	}
 	if !found {
+		foundIdx = -1
 		os.Family = "Other"
+	}
+	if(foundIdx > matchIdxNotOk) {
+		parser.OsMisses++
 	}
 	return os
 }
 
 func (parser *Parser) ParseDevice(line string) *Device {
 	dvc := new(Device)
+	foundIdx := math.MaxInt32
 	found := false
-	for _, dvcPattern := range parser.DevicePatterns {
+	for i, dvcPattern := range parser.DevicePatterns {
 		dvcPattern.Match(line, dvc)
 		if len(dvc.Family) > 0 {
 			found = true
+			foundIdx = i
+			parser.DevicePatterns[i].MatchesCount++
 			break
 		}
 	}
 	if !found {
+		foundIdx = -1
 		dvc.Family = "Other"
+	}
+	if(foundIdx > matchIdxNotOk) {
+		parser.DeviceMisses++
 	}
 	return dvc
 }
 
 func (parser *Parser) Parse(line string) *Client {
 	cli := new(Client)
-	cli.UserAgent = parser.ParseUserAgent(line)
-	cli.Os = parser.ParseOs(line)
-	cli.Device = parser.ParseDevice(line)
+	if EUserAgentLookUpMode & parser.Mode == EUserAgentLookUpMode {
+		cli.UserAgent = parser.ParseUserAgent(line)
+	}
+	if EOsLookUpMode & parser.Mode == EOsLookUpMode {
+		cli.Os = parser.ParseOs(line)
+	}
+	if EDeviceLookUpMode & parser.Mode == EDeviceLookUpMode {
+		cli.Device = parser.ParseDevice(line)
+	}
+	checkAndSort(parser)
 	return cli
+}
+
+func checkAndSort(parser *Parser) {
+	if(parser.UserAgentMisses >= missesTreshold) {
+		parser.UserAgentMisses = 0
+		sort.Sort(UserAgentPatternSorter(parser.UserAgentPatterns));
+	}
+	if(parser.OsMisses >= missesTreshold) {
+		parser.OsMisses = 0
+		sort.Sort(OsPatternSorter(parser.OsPatterns));
+	}
+	if(parser.DeviceMisses >= missesTreshold) {
+		parser.DeviceMisses = 0
+		sort.Sort(DevicePatternSorter(parser.DevicePatterns));
+	}
 }
 
 func singleMatchReplacement(replacement string, matches []string, idx int) string {

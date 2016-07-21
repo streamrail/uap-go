@@ -19,7 +19,13 @@ type OsPattern struct {
 	OsV1Replacement string
 	OsV2Replacement string
 	OsV3Replacement string
+	MatchesCount    int
 }
+
+type OsPatternSorter []OsPattern
+func (a OsPatternSorter) Len() int           { return len(a) }
+func (a OsPatternSorter) Swap(i, j int)      { a[i], a[j] = a[j], a[i] }
+func (a OsPatternSorter) Less(i, j int) bool { return a[i].MatchesCount > a[j].MatchesCount }
 
 func (osPattern *OsPattern) Match(line string, os *Os) {
 	matches := osPattern.Regexp.FindStringSubmatch(line)

@@ -18,7 +18,13 @@ type UserAgentPattern struct {
 	FamilyReplacement string
 	V1Replacement     string
 	V2Replacement     string
+	MatchesCount      int
 }
+
+type UserAgentPatternSorter []UserAgentPattern
+func (a UserAgentPatternSorter) Len() int           { return len(a) }
+func (a UserAgentPatternSorter) Swap(i, j int)      { a[i], a[j] = a[j], a[i] }
+func (a UserAgentPatternSorter) Less(i, j int) bool { return a[i].MatchesCount > a[j].MatchesCount }
 
 func (uaPattern *UserAgentPattern) Match(line string, ua *UserAgent) {
 	matches := uaPattern.Regexp.FindStringSubmatch(line)
