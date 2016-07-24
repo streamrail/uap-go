@@ -23,6 +23,7 @@ type Parser struct {
 	DevicePatterns    []DevicePattern
 	DeviceMisses      int
 	Mode              int
+	UseSort           bool
 }
 
 type Client struct {
@@ -36,8 +37,9 @@ const (
 	EUserAgentLookUpMode	= 2	/* 00000010 */
 	EDeviceLookUpMode	= 4	/* 00000100 */
 	cMinMissesTreshold	= 100000
-	CDefaultMissesTreshold	= 500000
-	CDefaultMatchIdxNotOk	= 20
+	cDefaultMissesTreshold	= 500000
+	cDefaultMatchIdxNotOk	= 20
+	cDefaultSortOption	= false
 )
 
 var (
@@ -68,7 +70,7 @@ func ToStruct(interfaceArr []map[string]string, typeInterface interface{}, retur
 	*returnVal = structArr
 }
 
-func NewWithOptions(regexFile string, mode, treshold, topCnt int) (*Parser, error) {
+func NewWithOptions(regexFile string, mode, treshold, topCnt int, useSort bool) (*Parser, error) {
 	parser := new(Parser)
 
 	data, err := ioutil.ReadFile(regexFile)
@@ -83,6 +85,7 @@ func NewWithOptions(regexFile string, mode, treshold, topCnt int) (*Parser, erro
 		missesTreshold = treshold
 	}
 	parser.Mode = mode
+	parser.UseSort = useSort
 	return parser.newFromBytes(data)
 }
 
@@ -93,9 +96,10 @@ func New(regexFile string) (*Parser, error) {
 	if nil != err {
 		return nil, err
 	}
-	matchIdxNotOk = CDefaultMatchIdxNotOk
-	missesTreshold = CDefaultMissesTreshold
+	matchIdxNotOk = cDefaultMatchIdxNotOk
+	missesTreshold = cDefaultMissesTreshold
 	parser.Mode = (EOsLookUpMode | EUserAgentLookUpMode | EDeviceLookUpMode)
+	parser.UseSort = cDefaultSortOption
 	return parser.newFromBytes(data)
 }
 
@@ -255,7 +259,9 @@ func (parser *Parser) Parse(line string) *Client {
 	if EDeviceLookUpMode & parser.Mode == EDeviceLookUpMode {
 		cli.Device = parser.ParseDevice(line)
 	}
-	checkAndSort(parser)
+	if parser.UseSort == true {
+		checkAndSort(parser)
+	}
 	return cli
 }
 
