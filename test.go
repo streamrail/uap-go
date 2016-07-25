@@ -21,7 +21,7 @@ func main() {
 	switch (os.Args[1]) {
 		case "new":
 			fmt.Printf("Running new version of uap...")
-			uaParser, _ := uaparser.NewWithOptions("/etc/regexes.yaml", (uaparser.EOsLookUpMode | uaparser.EUserAgentLookUpMode), 100, 20, true)
+			uaParser, _ := uaparser.NewWithOptions("/etc/regexes.yaml", (uaparser.EOsLookUpMode | uaparser.EUserAgentLookUpMode), 100, 20, true, true)
 			for i := 0; i < cLevel; i++ {
 				wg.Add(1)
 				go runTest(uaParser, i, &wg)
@@ -39,7 +39,7 @@ func main() {
 			return
 		case "both":
 			fmt.Printf("Running new version of uap...")
-			uaParser, _ := uaparser.NewWithOptions("/etc/regexes.yaml", (uaparser.EOsLookUpMode | uaparser.EUserAgentLookUpMode), 100, 20, true)
+			uaParser, _ := uaparser.NewWithOptions("/etc/regexes.yaml", (uaparser.EOsLookUpMode | uaparser.EUserAgentLookUpMode), 100, 20, true, true)
 			for i := 0; i < cLevel; i++ {
 				wg.Add(1)
 				runTest(uaParser, i, &wg)

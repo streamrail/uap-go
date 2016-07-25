@@ -7,6 +7,7 @@ import (
 	"sync"
 	"sync/atomic"
 	"sort"
+	"time"
 
 	"gopkg.in/yaml.v2"
 )
@@ -121,6 +122,7 @@ type Parser struct {
 	DeviceMisses      uint64
 	Mode              int
 	UseSort           bool
+	debugMode         bool
 }
 
 
@@ -154,7 +156,7 @@ func (parser *Parser) mustCompile() { // until we can use yaml.UnmarshalYAML wit
 	}
 }
 
-func NewWithOptions(regexFile string, mode, treshold, topCnt int, useSort bool) (*Parser, error) {
+func NewWithOptions(regexFile string, mode, treshold, topCnt int, useSort, debugMode bool) (*Parser, error) {
 	data, err := ioutil.ReadFile(regexFile)
 	if nil != err {
 		return nil, err
@@ -171,6 +173,7 @@ func NewWithOptions(regexFile string, mode, treshold, topCnt int, useSort bool) 
 	}
 	parser.Mode = mode
 	parser.UseSort = useSort
+	parser.debugMode = debugMode
 	return parser, nil
 }
 
@@ -194,7 +197,7 @@ func NewFromBytes(data []byte) (*Parser, error) {
 		return nil, err
 	}
 
-	parser := &Parser{definitions, 0, 0, 0, (EOsLookUpMode|EUserAgentLookUpMode|EDeviceLookUpMode), false}
+	parser := &Parser{definitions, 0, 0, 0, (EOsLookUpMode|EUserAgentLookUpMode|EDeviceLookUpMode), false, false}
 	parser.mustCompile()
 
 	return parser, nil
@@ -306,18 +309,27 @@ func (parser *Parser) ParseDevice(line string) *Device {
 func checkAndSort(parser *Parser) {
 	parser.Lock()
 	if(atomic.LoadUint64(&parser.UserAgentMisses) >= missesTreshold) {
+		if parser.debugMode {
+			fmt.Printf("%s\tSorting UserAgents slice\n", time.Now());
+		}
 		parser.UserAgentMisses = 0
 		sort.Sort(UserAgentSorter(parser.UA));
 	}
 	parser.Unlock()
 	parser.Lock()
 	if(atomic.LoadUint64(&parser.OsMisses) >= missesTreshold) {
+		if parser.debugMode {
+			fmt.Printf("%s\tSorting OS slice\n", time.Now());
+		}
 		parser.OsMisses = 0
 		sort.Sort(OsSorter(parser.OS));
 	}
 	parser.Unlock()
 	parser.Lock()
 	if(atomic.LoadUint64(&parser.DeviceMisses) >= missesTreshold) {
+		if parser.debugMode {
+			fmt.Printf("%s\tSorting Device slice\n", time.Now());
+		}
 		parser.DeviceMisses = 0
 		sort.Sort(DeviceSorter(parser.Device));
 	}
