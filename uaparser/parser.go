@@ -207,21 +207,27 @@ func (parser *Parser) Parse(line string) *Client {
 		wg.Add(1)
 		go func() {
 			defer wg.Done()
+			parser.RLock()
 			cli.UserAgent = parser.ParseUserAgent(line)
+			parser.RUnlock()
 		}()
 	}
 	if EOsLookUpMode & parser.Mode == EOsLookUpMode {
 		wg.Add(1)
 		go func() {
 			defer wg.Done()
+			parser.RLock()
 			cli.Os = parser.ParseOs(line)
+			parser.RUnlock()
 		}()
 	}
 	if EDeviceLookUpMode & parser.Mode == EDeviceLookUpMode {
 		wg.Add(1)
 		go func() {
 			defer wg.Done()
+			parser.RLock()
 			cli.Device = parser.ParseDevice(line)
+			parser.RUnlock()
 		}()
 	}
 	wg.Wait()
@@ -298,24 +304,24 @@ func (parser *Parser) ParseDevice(line string) *Device {
 }
 
 func checkAndSort(parser *Parser) {
+	parser.Lock()
 	if(atomic.LoadUint64(&parser.UserAgentMisses) >= missesTreshold) {
-		parser.Lock()
 		parser.UserAgentMisses = 0
 		sort.Sort(UserAgentSorter(parser.UA));
-		parser.Unlock()
 	}
+	parser.Unlock()
+	parser.Lock()
 	if(atomic.LoadUint64(&parser.OsMisses) >= missesTreshold) {
-		parser.Lock()
 		parser.OsMisses = 0
 		sort.Sort(OsSorter(parser.OS));
-		parser.Unlock()
 	}
+	parser.Unlock()
+	parser.Lock()
 	if(atomic.LoadUint64(&parser.DeviceMisses) >= missesTreshold) {
-		parser.Lock()
 		parser.DeviceMisses = 0
 		sort.Sort(DeviceSorter(parser.Device));
-		parser.Unlock()
 	}
+	parser.Unlock()
 }
 
 func compileRegex(flags, expr string) *regexp.Regexp {

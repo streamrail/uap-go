@@ -33,7 +33,7 @@ func main() {
 			uaParser, _ := uaparser.New("/etc/regexes.yaml")
 			for i := 0; i < cLevel; i++ {
 				wg.Add(1)
-				go runTest(uaParser, 0, &wg)
+				go runTest(uaParser, i, &wg)
 			}
 			wg.Wait()
 			return
@@ -42,13 +42,13 @@ func main() {
 			uaParser, _ := uaparser.NewWithOptions("/etc/regexes.yaml", (uaparser.EOsLookUpMode | uaparser.EUserAgentLookUpMode), 100, 20, true)
 			for i := 0; i < cLevel; i++ {
 				wg.Add(1)
-				runTest(uaParser, 0i, &wg)
+				runTest(uaParser, i, &wg)
 			}
 			fmt.Printf("Running old version of uap...")
 			uaParser, _ = uaparser.New("/etc/regexes.yaml")
 			for i := 0; i < cLevel; i++ {
 				wg.Add(1)
-				runTest(uaParser, 0, &wg)
+				runTest(uaParser, i, &wg)
 			}
 			wg.Wait()
 			return
@@ -78,9 +78,9 @@ func runTest(uaParser *uaparser.Parser, id int, wg *sync.WaitGroup) {
 	for scanner.Scan() {
 		str := scanner.Text()
 		line++
-		if line == 5000 {
-			break
-		}
+//		if line == 5000 {
+//			break
+//		}
 		start := time.Now()
 		if netUtil.IsMobileUA(str, uaParser.Parse(str)) {
 			platforms["mobile"]++
@@ -102,9 +102,9 @@ func countLines() (int) {
 	lineCount := 0
 	for fileScanner.Scan() {
 		lineCount++
-		if lineCount == 5000 {
-			break
-		}
+//		if lineCount == 5000 {
+//			break
+//		}
 	}
 	return lineCount
 }
