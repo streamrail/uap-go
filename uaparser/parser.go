@@ -5,6 +5,7 @@ import (
 	"io/ioutil"
 	"regexp"
 	"sync"
+	"sync/atomic"
 	"sort"
 
 	"gopkg.in/yaml.v2"
@@ -30,7 +31,7 @@ type uaParser struct {
 	V1Replacement     string `yaml:"v1_replacement"`
 	V2Replacement     string `yaml:"v2_replacement"`
 	V3Replacement     string `yaml:"v3_replacement"`
-	MatchesCount      int
+	MatchesCount      uint64
 }
 
 func (ua *uaParser) setDefaults() {
@@ -62,7 +63,7 @@ type osParser struct {
 	V2Replacement string `yaml:"os_v2_replacement"`
 	V3Replacement string `yaml:"os_v3_replacement"`
 	V4Replacement string `yaml:"os_v4_replacement"`
-	MatchesCount  int
+	MatchesCount  uint64
 }
 
 func (os *osParser) setDefaults() {
@@ -95,7 +96,7 @@ type deviceParser struct {
 	DeviceReplacement string `yaml:"device_replacement"`
 	BrandReplacement  string `yaml:"brand_replacement"`
 	ModelReplacement  string `yaml:"model_replacement"`
-	MatchesCount      int
+	MatchesCount      uint64
 }
 
 func (device *deviceParser) setDefaults() {
@@ -115,9 +116,9 @@ type Client struct {
 
 type Parser struct {
 	RegexesDefinitions
-	UserAgentMisses   int
-	OsMisses          int
-	DeviceMisses      int
+	UserAgentMisses   uint64
+	OsMisses          uint64
+	DeviceMisses      uint64
 	Mode              int
 	UseSort           bool
 }
@@ -134,7 +135,7 @@ const (
 )
 
 var (
-	missesTreshold		= 500000
+	missesTreshold		= uint64(500000)
 	matchIdxNotOk		= 20
 )
 
@@ -162,7 +163,7 @@ func NewWithOptions(regexFile string, mode, treshold, topCnt int, useSort bool) 
 		matchIdxNotOk = topCnt
 	}
 	if treshold > cMinMissesTreshold {
-		missesTreshold = treshold
+		missesTreshold = uint64(treshold)
 	}
 	parser, err := NewFromBytes(data)
 	if err != nil {
@@ -239,9 +240,7 @@ func (parser *Parser) ParseUserAgent(line string) *UserAgent {
 		if len(ua.Family) > 0 {
 			found = true
 			foundIdx = i
-			parser.Lock()
-			parser.UA[i].MatchesCount++
-			parser.Unlock()
+			atomic.AddUint64(&parser.UA[i].MatchesCount, 1)
 			break
 		}
 	}
@@ -249,7 +248,7 @@ func (parser *Parser) ParseUserAgent(line string) *UserAgent {
 		ua.Family = "Other"
 	}
 	if(foundIdx > matchIdxNotOk) {
-		parser.UserAgentMisses++
+		atomic.AddUint64(&parser.UserAgentMisses, 1)
 	}
 	return ua
 }
@@ -263,9 +262,7 @@ func (parser *Parser) ParseOs(line string) *Os {
 		if len(os.Family) > 0 {
 			found = true
 			foundIdx = i
-			parser.Lock()
-			parser.OS[i].MatchesCount++
-			parser.Unlock()
+			atomic.AddUint64(&parser.OS[i].MatchesCount, 1)
 			break
 		}
 	}
@@ -273,7 +270,7 @@ func (parser *Parser) ParseOs(line string) *Os {
 		os.Family = "Other"
 	}
 	if(foundIdx > matchIdxNotOk) {
-		parser.OsMisses++
+		atomic.AddUint64(&parser.OsMisses, 1)
 	}
 	return os
 }
@@ -287,9 +284,7 @@ func (parser *Parser) ParseDevice(line string) *Device {
 		if len(dvc.Family) > 0 {
 			found = true
 			foundIdx = i
-			parser.Lock()
-			parser.Device[i].MatchesCount++
-			parser.Unlock()
+			atomic.AddUint64(&parser.Device[i].MatchesCount, 1)
 			break
 		}
 	}
@@ -297,25 +292,25 @@ func (parser *Parser) ParseDevice(line string) *Device {
 		dvc.Family = "Other"
 	}
 	if(foundIdx > matchIdxNotOk) {
-		parser.DeviceMisses++
+		atomic.AddUint64(&parser.DeviceMisses, 1)
 	}
 	return dvc
 }
 
 func checkAndSort(parser *Parser) {
-	if(parser.UserAgentMisses >= missesTreshold) {
+	if(atomic.LoadUint64(&parser.UserAgentMisses) >= missesTreshold) {
 		parser.RLock()
 		parser.UserAgentMisses = 0
 		sort.Sort(UserAgentSorter(parser.UA));
 		parser.RUnlock()
 	}
-	if(parser.OsMisses >= missesTreshold) {
+	if(atomic.LoadUint64(&parser.OsMisses) >= missesTreshold) {
 		parser.RLock()
 		parser.OsMisses = 0
 		sort.Sort(OsSorter(parser.OS));
 		parser.RUnlock()
 	}
-	if(parser.DeviceMisses >= missesTreshold) {
+	if(atomic.LoadUint64(&parser.DeviceMisses) >= missesTreshold) {
 		parser.RLock()
 		parser.DeviceMisses = 0
 		sort.Sort(DeviceSorter(parser.Device));
