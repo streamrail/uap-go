@@ -1,42 +1,28 @@
 package uaparser
 
-import (
-	"regexp"
-	"strings"
-)
+import "strings"
 
 type Device struct {
 	Family string
+	Brand  string
+	Model  string
 }
 
-type DevicePattern struct {
-	Regexp            *regexp.Regexp
-	Regex             string
-	RegexFlag         string
-	BrandReplacement  string
-	DeviceReplacement string
-	ModelReplacement  string
-	MatchesCount      int
-}
+func (parser *deviceParser) Match(line string, dvc *Device) {
+	matches := parser.Reg.FindStringSubmatchIndex(line)
 
-type DevicePatternSorter []DevicePattern
-func (a DevicePatternSorter) Len() int           { return len(a) }
-func (a DevicePatternSorter) Swap(i, j int)      { a[i], a[j] = a[j], a[i] }
-func (a DevicePatternSorter) Less(i, j int) bool { return a[i].MatchesCount > a[j].MatchesCount }
-
-func (dvcPattern *DevicePattern) Match(line string, dvc *Device) {
-	matches := dvcPattern.Regexp.FindStringSubmatch(line)
 	if len(matches) == 0 {
 		return
 	}
-	groupCount := dvcPattern.Regexp.NumSubexp()
 
-	if len(dvcPattern.DeviceReplacement) > 0 {
-		dvc.Family = allMatchesReplacement(dvcPattern.DeviceReplacement, matches)
-	} else if groupCount >= 1 {
-		dvc.Family = matches[1]
-	}
+	dvc.Family = string(parser.Reg.ExpandString(nil, parser.DeviceReplacement, line, matches))
 	dvc.Family = strings.TrimSpace(dvc.Family)
+
+	dvc.Brand = string(parser.Reg.ExpandString(nil, parser.BrandReplacement, line, matches))
+	dvc.Brand = strings.TrimSpace(dvc.Brand)
+
+	dvc.Model = string(parser.Reg.ExpandString(nil, parser.ModelReplacement, line, matches))
+	dvc.Model = strings.TrimSpace(dvc.Model)
 }
 
 func (dvc *Device) ToString() string {
