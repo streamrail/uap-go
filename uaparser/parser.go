@@ -14,6 +14,7 @@ type RegexesDefinitions struct {
 	UA     []*uaParser     `yaml:"user_agent_parsers"`
 	OS     []*osParser     `yaml:"os_parsers"`
 	Device []*deviceParser `yaml:"device_parsers"`
+	sync.RWMutex
 }
 
 type UserAgentSorter []*uaParser
@@ -238,7 +239,9 @@ func (parser *Parser) ParseUserAgent(line string) *UserAgent {
 		if len(ua.Family) > 0 {
 			found = true
 			foundIdx = i
+			parser.Lock()
 			parser.UA[i].MatchesCount++
+			parser.Unlock()
 			break
 		}
 	}
@@ -260,7 +263,9 @@ func (parser *Parser) ParseOs(line string) *Os {
 		if len(os.Family) > 0 {
 			found = true
 			foundIdx = i
+			parser.Lock()
 			parser.OS[i].MatchesCount++
+			parser.Unlock()
 			break
 		}
 	}
@@ -282,7 +287,9 @@ func (parser *Parser) ParseDevice(line string) *Device {
 		if len(dvc.Family) > 0 {
 			found = true
 			foundIdx = i
+			parser.Lock()
 			parser.Device[i].MatchesCount++
+			parser.Unlock()
 			break
 		}
 	}
@@ -297,16 +304,22 @@ func (parser *Parser) ParseDevice(line string) *Device {
 
 func checkAndSort(parser *Parser) {
 	if(parser.UserAgentMisses >= missesTreshold) {
+		parser.RLock()
 		parser.UserAgentMisses = 0
 		sort.Sort(UserAgentSorter(parser.UA));
+		parser.RUnlock()
 	}
 	if(parser.OsMisses >= missesTreshold) {
+		parser.RLock()
 		parser.OsMisses = 0
 		sort.Sort(OsSorter(parser.OS));
+		parser.RUnlock()
 	}
 	if(parser.DeviceMisses >= missesTreshold) {
+		parser.RLock()
 		parser.DeviceMisses = 0
 		sort.Sort(DeviceSorter(parser.Device));
+		parser.RUnlock()
 	}
 }
 
