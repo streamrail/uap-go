@@ -130,9 +130,9 @@ const (
 	EOsLookUpMode		= 1	/* 00000001 */
 	EUserAgentLookUpMode	= 2	/* 00000010 */
 	EDeviceLookUpMode	= 4	/* 00000100 */
-	CMinMissesTreshold	= 100000
-	CDefaultMissesTreshold	= 500000
-	CDefaultMatchIdxNotOk	= 20
+	cMinMissesTreshold	= 100000
+	cDefaultMissesTreshold	= 500000
+	cDefaultMatchIdxNotOk	= 20
 	cDefaultSortOption	= false
 )
 
@@ -164,7 +164,7 @@ func NewWithOptions(regexFile string, mode, treshold, topCnt int, useSort, debug
 	if topCnt >= 0 {
 		matchIdxNotOk = topCnt
 	}
-	if treshold > CMinMissesTreshold {
+	if treshold > cMinMissesTreshold {
 		missesTreshold = uint64(treshold)
 	}
 	parser, err := NewFromBytes(data)
@@ -182,8 +182,8 @@ func New(regexFile string) (*Parser, error) {
 	if nil != err {
 		return nil, err
 	}
-	matchIdxNotOk = CDefaultMatchIdxNotOk
-	missesTreshold = CDefaultMissesTreshold
+	matchIdxNotOk = cDefaultMatchIdxNotOk
+	missesTreshold = cDefaultMissesTreshold
 	parser, err := NewFromBytes(data)
 	if err != nil {
 		return nil, err
