@@ -162,10 +162,10 @@ func NewWithOptions(regexFile string, mode, treshold int, topCnt int64, useSort,
 		return nil, err
 	}
 	if topCnt >= 0 {
-		matchIdxNotOk = topCnt
+		atomic.StoreInt64(&matchIdxNotOk, topCnt)
 	}
 	if treshold > cMinMissesTreshold {
-		missesTreshold = uint64(treshold)
+		atomic.StoreUint64(&missesTreshold, uint64(treshold))
 	}
 	parser, err := NewFromBytes(data)
 	if err != nil {
@@ -182,8 +182,9 @@ func New(regexFile string) (*Parser, error) {
 	if nil != err {
 		return nil, err
 	}
-	matchIdxNotOk = cDefaultMatchIdxNotOk
-	missesTreshold = cDefaultMissesTreshold
+	atomic.StoreInt64(&matchIdxNotOk, cDefaultMatchIdxNotOk)
+	atomic.StoreUint64(&missesTreshold, cDefaultMissesTreshold)
+
 	parser, err := NewFromBytes(data)
 	if err != nil {
 		return nil, err
