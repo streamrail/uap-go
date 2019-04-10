@@ -138,7 +138,7 @@ const (
 
 var (
 	missesTreshold		= uint64(500000)
-	matchIdxNotOk		= 20
+	matchIdxNotOk		= int64(20)
 )
 
 func (parser *Parser) mustCompile() { // until we can use yaml.UnmarshalYAML with embedded pointer struct
@@ -156,16 +156,16 @@ func (parser *Parser) mustCompile() { // until we can use yaml.UnmarshalYAML wit
 	}
 }
 
-func NewWithOptions(regexFile string, mode, treshold, topCnt int, useSort, debugMode bool) (*Parser, error) {
+func NewWithOptions(regexFile string, mode, treshold int, topCnt int64, useSort, debugMode bool) (*Parser, error) {
 	data, err := ioutil.ReadFile(regexFile)
 	if nil != err {
 		return nil, err
 	}
 	if topCnt >= 0 {
-		matchIdxNotOk = topCnt
+		atomic.StoreInt64(&matchIdxNotOk, topCnt)
 	}
 	if treshold > cMinMissesTreshold {
-		missesTreshold = uint64(treshold)
+		atomic.StoreUint64(&missesTreshold, uint64(treshold))
 	}
 	parser, err := NewFromBytes(data)
 	if err != nil {
@@ -182,8 +182,9 @@ func New(regexFile string) (*Parser, error) {
 	if nil != err {
 		return nil, err
 	}
-	matchIdxNotOk = cDefaultMatchIdxNotOk
-	missesTreshold = cDefaultMissesTreshold
+	atomic.StoreInt64(&matchIdxNotOk, cDefaultMatchIdxNotOk)
+	atomic.StoreUint64(&missesTreshold, cDefaultMissesTreshold)
+
 	parser, err := NewFromBytes(data)
 	if err != nil {
 		return nil, err
@@ -256,7 +257,7 @@ func (parser *Parser) ParseUserAgent(line string) *UserAgent {
 	if !found {
 		ua.Family = "Other"
 	}
-	if(foundIdx > matchIdxNotOk) {
+	if int64(foundIdx) > atomic.LoadInt64(&matchIdxNotOk) {
 		atomic.AddUint64(&parser.UserAgentMisses, 1)
 	}
 	return ua
@@ -278,7 +279,7 @@ func (parser *Parser) ParseOs(line string) *Os {
 	if !found {
 		os.Family = "Other"
 	}
-	if(foundIdx > matchIdxNotOk) {
+	if int64(foundIdx) > atomic.LoadInt64(&matchIdxNotOk) {
 		atomic.AddUint64(&parser.OsMisses, 1)
 	}
 	return os
@@ -300,7 +301,7 @@ func (parser *Parser) ParseDevice(line string) *Device {
 	if !found {
 		dvc.Family = "Other"
 	}
-	if(foundIdx > matchIdxNotOk) {
+	if int64(foundIdx) > atomic.LoadInt64(&matchIdxNotOk) {
 		atomic.AddUint64(&parser.DeviceMisses, 1)
 	}
 	return dvc
@@ -308,7 +309,7 @@ func (parser *Parser) ParseDevice(line string) *Device {
 
 func checkAndSort(parser *Parser) {
 	parser.Lock()
-	if(atomic.LoadUint64(&parser.UserAgentMisses) >= missesTreshold) {
+	if atomic.LoadUint64(&parser.UserAgentMisses) >= atomic.LoadUint64(&missesTreshold) {
 		if parser.debugMode {
 			fmt.Printf("%s\tSorting UserAgents slice\n", time.Now());
 		}
@@ -317,7 +318,7 @@ func checkAndSort(parser *Parser) {
 	}
 	parser.Unlock()
 	parser.Lock()
-	if(atomic.LoadUint64(&parser.OsMisses) >= missesTreshold) {
+	if atomic.LoadUint64(&parser.OsMisses) >= atomic.LoadUint64(&missesTreshold) {
 		if parser.debugMode {
 			fmt.Printf("%s\tSorting OS slice\n", time.Now());
 		}
@@ -326,7 +327,7 @@ func checkAndSort(parser *Parser) {
 	}
 	parser.Unlock()
 	parser.Lock()
-	if(atomic.LoadUint64(&parser.DeviceMisses) >= missesTreshold) {
+	if atomic.LoadUint64(&parser.DeviceMisses) >= atomic.LoadUint64(&missesTreshold) {
 		if parser.debugMode {
 			fmt.Printf("%s\tSorting Device slice\n", time.Now());
 		}
